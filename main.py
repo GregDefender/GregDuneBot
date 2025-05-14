@@ -1,5 +1,5 @@
 import os
-import time
+import asyncio
 import discord
 from discord.ext import commands
 
@@ -10,62 +10,48 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Channel ID of the "Join to Create" voice channel
-Hagga_Basin_JOIN_TO_CREATE_CHANNEL_ID = 1371983984925347980
-Hagga_Basin_TEMP_CHANNEL_CATEGORY_ID = 1371981195717378119
-Deep_Desert_JOIN_TO_CREATE_CHANNEL_ID = 1371983716578234461
-Deep_Desert_TEMP_CHANNEL_CATEGORY_ID = 1371981370137772114
-created_channels = {}
+# Channel IDs
+HAGGA_JOIN_ID = 1371983984925347980
+HAGGA_CATEGORY_ID = 1371981195717378119
+DESERT_JOIN_ID = 1371983716578234461
+DESERT_CATEGORY_ID = 1371981370137772114
 
+# Track dynamically created channels
+created_channels = set()
+channel_creation_lock = asyncio.Lock()
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    # User joins the "Join to Create" channel for Hagga Basin
-    if after.channel and after.channel.id == Hagga_Basin_JOIN_TO_CREATE_CHANNEL_ID:
+    # Skip if the event isn't a channel join
+    if after.channel is None or before.channel == after.channel:
+        return
+
+    # Handle Hagga Basin join
+    if after.channel.id == HAGGA_JOIN_ID:
+        await handle_dynamic_channel(member, "Hagga Basin Expedition", HAGGA_CATEGORY_ID)
+
+    # Handle Deep Desert join
+    elif after.channel.id == DESERT_JOIN_ID:
+        await handle_dynamic_channel(member, "Deep Desert Expedition", DESERT_CATEGORY_ID)
+
+    # Handle leaving a created channel (to check for empty)
+    if before.channel and before.channel.id in created_channels:
+        # Wait a moment before checking
+        await asyncio.sleep(5)
+        if len(before.channel.members) == 0:
+            await before.channel.delete()
+            created_channels.discard(before.channel.id)
+
+async def handle_dynamic_channel(member, name, category_id):
+    async with channel_creation_lock:
         guild = member.guild
-        category = discord.utils.get(guild.categories,
-                                     id=Hagga_Basin_TEMP_CHANNEL_CATEGORY_ID)
+        category = discord.utils.get(guild.categories, id=category_id)
 
         # Create the new voice channel
-        new_channel = await guild.create_voice_channel(
-            name="Hagga Basin Expedition",
-            category=category  #,
-            #user_limit=5  # Optional: Limit number of users
-        )
+        new_channel = await guild.create_voice_channel(name=name, category=category)
+        created_channels.add(new_channel.id)
 
-        # Move the user to the new channel
+        # Move the user into the new channel
         await member.move_to(new_channel)
-
-        # Track created channel
-        created_channels[member.id] = new_channel.id
-
-    # User joins the "Join to Create" channel for Deep Desert
-    if after.channel and after.channel.id == Deep_Desert_JOIN_TO_CREATE_CHANNEL_ID:
-        guild = member.guild
-        category = discord.utils.get(guild.categories,
-                                     id=Deep_Desert_TEMP_CHANNEL_CATEGORY_ID)
-
-        # Create the new voice channel
-        new_channel = await guild.create_voice_channel(
-            name="Deep Desert Expedition",
-            category=category  #,
-            #user_limit=5  # Optional: Limit number of users
-        )
-
-        # Move the user to the new channel
-        await member.move_to(new_channel)
-
-        # Track created channel
-        created_channels[member.id] = new_channel.id
-
-    # Check if any created channels are now empty and delete them
-    time.sleep(5)
-    for user_id, channel_id in list(created_channels.items()):
-        channel = bot.get_channel(channel_id)
-        if channel and len(channel.members) == 0:
-            await channel.delete()
-            del created_channels[user_id]
-
-
 
 bot.run(os.getenv("DISCORD_TOKEN"))
