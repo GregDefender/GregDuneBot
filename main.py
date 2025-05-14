@@ -36,8 +36,6 @@ async def on_voice_state_update(member, before, after):
 
     # Handle leaving a created channel (to check for empty)
     if before.channel and before.channel.id in created_channels:
-        # Wait a moment before checking
-        await asyncio.sleep(5)
         if len(before.channel.members) == 0:
             await before.channel.delete()
             created_channels.discard(before.channel.id)
