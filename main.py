@@ -34,11 +34,22 @@ async def on_voice_state_update(member, before, after):
     elif after.channel.id == DESERT_JOIN_ID:
         await handle_dynamic_channel(member, "Deep Desert Expedition", DESERT_CATEGORY_ID)
 
-    # Handle leaving a created channel (to check for empty)
+    # Check if user left a dynamically created channel
     if before.channel and before.channel.id in created_channels:
-        if len(before.channel.members) == 0:
-            await before.channel.delete()
+        # Wait a bit for Discord to update voice states properly
+        await asyncio.sleep(5)
+
+        # Refetch channel to get fresh state
+        channel = bot.get_channel(before.channel.id)
+        if channel is None:
+            # Channel already deleted or doesn't exist
             created_channels.discard(before.channel.id)
+            return
+
+        # If no members left, delete the channel
+        if len(channel.members) == 0:
+            await channel.delete()
+            created_channels.discard(channel.id)
 
 async def handle_dynamic_channel(member, name, category_id):
     async with channel_creation_lock:
