@@ -2,6 +2,7 @@ import os
 import asyncio
 import discord
 from discord.ext import commands
+import time
 
 intents = discord.Intents.default()
 intents.voice_states = True
@@ -10,57 +11,71 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Channel IDs
 HAGGA_JOIN_ID = 1371983984925347980
 HAGGA_CATEGORY_ID = 1371981195717378119
 DESERT_JOIN_ID = 1371983716578234461
 DESERT_CATEGORY_ID = 1371981370137772114
 
-# Track dynamically created channels
 created_channels = set()
 channel_creation_lock = asyncio.Lock()
 
+# Track users recently handled to prevent duplicate channel creation
+user_cooldowns = {}
+
+COOLDOWN_SECONDS = 10  # Adjust as needed
+
+
 @bot.event
 async def on_voice_state_update(member, before, after):
-    # Skip if the event isn't a channel join
-    if after.channel is None or before.channel == after.channel:
+    now = time.time()
+
+    # Clean up cooldown dict for expired entries
+    to_remove = [user_id for user_id, timestamp in user_cooldowns.items() if now - timestamp > COOLDOWN_SECONDS]
+    for user_id in to_remove:
+        user_cooldowns.pop(user_id, None)
+
+    if after.channel == before.channel:
         return
 
-    # Handle Hagga Basin join
-    if after.channel.id == HAGGA_JOIN_ID:
-        await handle_dynamic_channel(member, "Hagga Basin Expedition", HAGGA_CATEGORY_ID)
+    # If user is in cooldown, skip creating a channel again
+    if member.id in user_cooldowns:
+        return
 
-    # Handle Deep Desert join
-    elif after.channel.id == DESERT_JOIN_ID:
-        await handle_dynamic_channel(member, "Deep Desert Expedition", DESERT_CATEGORY_ID)
+    if after.channel and after.channel.id == HAGGA_JOIN_ID:
+        if channel_creation_lock.locked():
+            return
 
-    # Check if user left a dynamically created channel
+        async with channel_creation_lock:
+            await handle_dynamic_channel(member, "Hagga Basin Expedition", HAGGA_CATEGORY_ID)
+            user_cooldowns[member.id] = time.time()
+
+    elif after.channel and after.channel.id == DESERT_JOIN_ID:
+        if channel_creation_lock.locked():
+            return
+
+        async with channel_creation_lock:
+            await handle_dynamic_channel(member, "Deep Desert Expedition", DESERT_CATEGORY_ID)
+            user_cooldowns[member.id] = time.time()
+
     if before.channel and before.channel.id in created_channels:
-        # Wait a bit for Discord to update voice states properly
-        await asyncio.sleep(5)
-
-        # Refetch channel to get fresh state
         channel = bot.get_channel(before.channel.id)
         if channel is None:
-            # Channel already deleted or doesn't exist
             created_channels.discard(before.channel.id)
             return
 
-        # If no members left, delete the channel
         if len(channel.members) == 0:
             await channel.delete()
             created_channels.discard(channel.id)
 
+
 async def handle_dynamic_channel(member, name, category_id):
-    async with channel_creation_lock:
-        guild = member.guild
-        category = discord.utils.get(guild.categories, id=category_id)
+    guild = member.guild
+    category = discord.utils.get(guild.categories, id=category_id)
 
-        # Create the new voice channel
-        new_channel = await guild.create_voice_channel(name=name, category=category)
-        created_channels.add(new_channel.id)
+    new_channel = await guild.create_voice_channel(name=name, category=category)
+    created_channels.add(new_channel.id)
 
-        # Move the user into the new channel
-        await member.move_to(new_channel)
+    await member.move_to(new_channel)
+
 
 bot.run(os.getenv("DISCORD_TOKEN"))
