@@ -1,4 +1,5 @@
 import os
+import time
 import discord
 from discord.ext import commands
 
@@ -58,6 +59,7 @@ async def on_voice_state_update(member, before, after):
         created_channels[member.id] = new_channel.id
 
     # Check if any created channels are now empty and delete them
+    time.sleep(1)
     for user_id, channel_id in list(created_channels.items()):
         channel = bot.get_channel(channel_id)
         if channel and len(channel.members) == 0:
