@@ -20,10 +20,10 @@ HAGGA_JOIN_ID = 1371983984925347980
 HAGGA_CATEGORY_ID = 1371981195717378119
 DESERT_JOIN_ID = 1371983716578234461
 DESERT_CATEGORY_ID = 1371981370137772114
-CHAT_CHANNEL_ID = 123456789012345678  # 👈 Replace this with your desired chat channel ID
+CHAT_CHANNEL_ID = 1372361356237344808  # Replace this with your desired chat channel ID
 
 # --- SETUP ---
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = os.getenv("OPENAI_TOKEN")
 
 user_channels = {}
 user_cooldowns = {}
