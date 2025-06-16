@@ -1,8 +1,11 @@
 import os
 import asyncio
 import discord
-from discord.ext import commands
 import time
+from discord.ext import commands
+from discord.ext import tasks
+from datetime import datetime
+import pytz
 
 intents = discord.Intents.default()
 intents.voice_states = True
@@ -17,6 +20,10 @@ HAGGA_JOIN_ID = 1371983984925347980
 HAGGA_CATEGORY_ID = 1371981195717378119
 DESERT_JOIN_ID = 1371983716578234461
 DESERT_CATEGORY_ID = 1371981370137772114
+TARGET_CHANNEL_ID = 1372396805559423047
+
+#Timezone
+CENTRAL = pytz.timezone('US/Central')
 
 # Internal tracking
 user_channels = {}         # user_id -> channel_id
@@ -108,5 +115,24 @@ async def on_voice_state_update(member, before, after):
             finally:
                 moving_users.discard(member.id)
 
+
+@tasks.loop(minutes=1)
+async def coriolis_reminder():
+    now = datetime.now(CENTRAL)
+    if now.weekday() == 0 and now.hour == 19 and now.minute == 0:  # Monday, 7:00 PM Central
+        channel = bot.get_channel(TARGET_CHANNEL_ID)
+        if channel:
+            await channel.send("Coriolis Storm has started. Evacuate our Deep Desert Base.")
+        await asyncio.sleep(60)  # prevent multiple messages in the same minute
+    elif now.weekday() == 1 and now.hour == 5 and now.minute == 0:  # Tuesday, 5:00 AM Central
+        channel = bot.get_channel(TARGET_CHANNEL_ID)
+        if channel:
+            await channel.send("Coriolis Storm has ended. A new Deep Desert is ready to be explored!")
+        await asyncio.sleep(60)  # prevent multiple messages in the same minute
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}")
+    coriolis_reminder.start()
 
 bot.run(os.getenv("DISCORD_TOKEN"))
