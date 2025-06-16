@@ -122,12 +122,12 @@ async def coriolis_reminder():
     if now.weekday() == 0 and now.hour == 19 and now.minute == 0:  # Monday, 7:00 PM Central
         channel = bot.get_channel(TARGET_CHANNEL_ID)
         if channel:
-            await channel.send("Coriolis Storm has started. Evacuate our Deep Desert Base.")
+            await channel.send("Coriolis Storm has started. Evacuate our Deep Desert Base. @DeepDesertAlert")
         await asyncio.sleep(60)  # prevent multiple messages in the same minute
     elif now.weekday() == 1 and now.hour == 5 and now.minute == 0:  # Tuesday, 5:00 AM Central
         channel = bot.get_channel(TARGET_CHANNEL_ID)
         if channel:
-            await channel.send("Coriolis Storm has ended. A new Deep Desert is ready to be explored!")
+            await channel.send("Coriolis Storm has ended. A new Deep Desert is ready to be explored! @DeepDesertAlert")
         await asyncio.sleep(60)  # prevent multiple messages in the same minute
 
 @bot.event
